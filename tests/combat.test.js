@@ -1,0 +1,14 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {createGame,active,switchHero,attack,heal,dodge,tick} from '../src/combat.js';
+function game(){const g=createGame();g.phase='playing';return g;}
+test('ready and paused stop simulation',()=>{const g=createGame();tick(g,{x:1},.05);assert.equal(g.time,0);g.phase='paused';tick(g,{},.05);assert.equal(g.time,0);});
+test('movement stays within arena and diagonal speed is normalized',()=>{const g=game(),p=active(g);p.x=0;p.z=0;tick(g,{x:1,z:1},.05);assert.ok(Math.abs(Math.hypot(p.x,p.z)-.26)<1e-8);p.x=17;tick(g,{x:1},.05);assert.equal(p.x,17);});
+test('hero switching skips defeated heroes',()=>{const g=game();assert.ok(switchHero(g,1));g.party[2].hp=0;assert.equal(switchHero(g,2),false);assert.equal(g.selected,1);});
+test('normal attack requires range and respects cooldown',()=>{const g=game(),p=active(g);p.x=g.boss.x;p.z=g.boss.z+2;assert.ok(attack(g));assert.equal(g.boss.hp,628);assert.equal(attack(g),false);});
+test('out of range attack does not damage boss',()=>{const g=game();assert.ok(attack(g));assert.equal(g.boss.hp,650);});
+test('ability spends mana and cannot overspend',()=>{const g=game();switchHero(g,1);const p=active(g);p.z=3;assert.ok(attack(g,true));assert.equal(p.mp,70);assert.equal(g.boss.hp,580);p.cooldown=0;p.abilityCooldown=0;p.mp=29;assert.equal(attack(g,true),false);});
+test('healing is bounded and uses inventory',()=>{const g=game(),p=active(g);assert.equal(heal(g),false);p.hp=100;assert.ok(heal(g));assert.equal(p.hp,p.maxHp);assert.equal(g.potions,2);g.potions=0;p.hp=50;assert.equal(heal(g),false);});
+test('boss slam damages in telegraphed area only',()=>{const g=game();g.boss.state='telegraph';g.boss.target={x:-2,z:8};g.boss.timer=.01;g.party[1].x=15;g.party[1].z=15;tick(g,{},.05);assert.equal(g.party[0].hp,102);assert.equal(g.party[1].hp,110);assert.equal(g.boss.state,'recover');});
+test('block reduces slam and dodge prevents damage',()=>{const g=game();g.boss.state='telegraph';g.boss.target={x:-2,z:8};g.boss.timer=.01;tick(g,{block:true},.05);assert.equal(active(g).hp,130.5);const h=game();h.boss.state='telegraph';h.boss.target={x:-2,z:8};h.boss.timer=.01;assert.ok(dodge(h));tick(h,{},.05);assert.equal(active(h).hp,140);});
+test('defeated controlled hero automatically switches',()=>{const g=game();active(g).hp=0;tick(g,{},.05);assert.equal(g.selected,1);});
+test('victory and defeat stop commands',()=>{const g=game();g.boss.hp=1;active(g).z=-5;assert.ok(attack(g,true));assert.equal(g.phase,'won');assert.equal(attack(g),false);const h=game();h.party.forEach(p=>p.hp=0);tick(h,{},.05);assert.equal(h.phase,'lost');});
+test('invalid timestep rejected and long frames capped',()=>{const g=game();assert.throws(()=>tick(g,{},-1));tick(g,{},3);assert.equal(g.time,.05);});

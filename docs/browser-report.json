@@ -1,0 +1,15 @@
+{
+  "passed": [
+    "WebGL render",
+    "keyboard movement",
+    "hero switching",
+    "ability damage and mana",
+    "dodge input",
+    "pause freezes clock",
+    "restart resets encounter",
+    "touch movement",
+    "mobile party switching",
+    "mobile layout"
+  ],
+  "page_errors": []
+}
